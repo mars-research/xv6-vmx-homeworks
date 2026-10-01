@@ -55,7 +55,12 @@ uartputc(int c)
 
   if(!uart)
     return;
-  for(i = 0; i < 128 && !(inb(COM1+5) & 0x20); i++)
+  /*
+   * Wait for the transmitter.  The bound is generous because Bochs'
+   * emulated UART is slow relative to this loop and would otherwise
+   * drop characters.
+   */
+  for(i = 0; i < 100000 && !(inb(COM1+5) & 0x20); i++)
     microdelay(10);
   outb(COM1+0, c);
 }

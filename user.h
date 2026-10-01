@@ -1,5 +1,6 @@
 struct stat;
 struct rtcdate;
+struct vmexit;
 
 // system calls
 int fork(void);
@@ -23,6 +24,10 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+int vmcreate(void*, int, int);
+int vmsetreg(int, int, uint64);
+int vmrun(int, struct vmexit*);
+int vmgetreg(int, int, uint64*);
 
 // ulib.c
 int stat(const char*, struct stat*);

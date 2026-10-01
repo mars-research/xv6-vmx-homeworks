@@ -5,6 +5,7 @@ _*
 *.asm
 *.sym
 *.img
+*.img.lock
 vectors.S
 bootblock
 entryother
@@ -16,3 +17,8 @@ mkfs
 fmt
 .gdbinit
 .vscode/
+.bochsrc
+bochsout.txt
+serial.out
+helloguest
+helloguest.elf

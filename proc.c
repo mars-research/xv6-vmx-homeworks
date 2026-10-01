@@ -240,6 +240,8 @@ exit(void)
     }
   }
 
+  vmxfreeproc(curproc);
+
   begin_op();
   iput(curproc->cwd);
   end_op();

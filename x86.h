@@ -147,6 +147,56 @@ lcr3(uint64 val)
 }
 
 static inline uint64
+rcr0(void)
+{
+  uint64 val;
+  asm volatile("movq %%cr0,%0" : "=r" (val));
+  return val;
+}
+
+static inline void
+lcr0(uint64 val)
+{
+  asm volatile("movq %0,%%cr0" : : "r" (val));
+}
+
+static inline uint64
+rcr3(void)
+{
+  uint64 val;
+  asm volatile("movq %%cr3,%0" : "=r" (val));
+  return val;
+}
+
+static inline uint64
+rcr4(void)
+{
+  uint64 val;
+  asm volatile("movq %%cr4,%0" : "=r" (val));
+  return val;
+}
+
+static inline void
+lcr4(uint64 val)
+{
+  asm volatile("movq %0,%%cr4" : : "r" (val));
+}
+
+static inline uint64
+rdmsr(uint msr)
+{
+  uint lo, hi;
+  asm volatile("rdmsr" : "=a" (lo), "=d" (hi) : "c" (msr));
+  return ((uint64)hi << 32) | lo;
+}
+
+static inline void
+wrmsr(uint msr, uint64 val)
+{
+  asm volatile("wrmsr" : : "c" (msr), "a" ((uint)val), "d" ((uint)(val >> 32)));
+}
+
+static inline uint64
 readrflags(void)
 {
   uint64 rflags;

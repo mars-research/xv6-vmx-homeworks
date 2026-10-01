@@ -28,6 +28,9 @@ OBJS = \
 	vectors.o\
 	vm.o\
 	acpi.o\
+	vmx.o\
+	vmxasm.o\
+	sysvmx.o\
 
 # Cross-compiling (e.g., on Mac OS X)
 # TOOLPREFIX = x86_64-elf-
@@ -73,7 +76,10 @@ AS = $(TOOLPREFIX)gas
 LD = $(TOOLPREFIX)ld
 OBJCOPY = $(TOOLPREFIX)objcopy
 OBJDUMP = $(TOOLPREFIX)objdump
-CFLAGS = -fno-pic -static -fno-builtin -fno-strict-aliasing -Og -Wno-infinite-recursion -Wall -MD -ggdb -Werror -fno-omit-frame-pointer 
+# HW1: the stubbed functions leave variables and helper functions unused
+# until you fill them in, so unused-variable and unused-function
+# warnings are not errors here. Everything else is still -Werror.
+CFLAGS = -fno-pic -static -fno-builtin -fno-strict-aliasing -Og -Wno-infinite-recursion -Wall -MD -ggdb -Werror -fno-omit-frame-pointer -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-function 
 # This flag disables default optimizations or features that are enabled by default.
 # In particular, it disables SIMD optimizations. Cleaner than:
 # CFLAGS += -mno-mmx -mno-sse -mno-sse2 -mno-sse3 -mno-ssse3 -mno-sse4 -mno-sse4a -mno-sse4.1 -mno-sse4.2 -mfpmath=387
@@ -185,9 +191,22 @@ UPROGS=\
 	_usertests2\
 	_wc\
 	_zombie\
+	_runvm\
 
-fs.img: mkfs README $(UPROGS)
-	./mkfs fs.img README $(UPROGS)
+# Hello-world VT-x guest: a flat binary loaded by runvm, not an xv6
+# user program.
+GUESTCFLAGS = -m64 -ffreestanding -fno-pic -fno-pie -fno-stack-protector \
+	-mno-red-zone -mgeneral-regs-only -nostdinc -O2 -Wall -Werror -I.
+
+helloguest: helloguestasm.S helloguest.c helloguest.ld
+	$(CC) $(GUESTCFLAGS) -c helloguestasm.S -o helloguestasm.o
+	$(CC) $(GUESTCFLAGS) -c helloguest.c -o helloguest.o
+	$(LD) -T helloguest.ld -z max-page-size=0x1000 -o helloguest.elf helloguestasm.o helloguest.o
+	$(OBJDUMP) -S helloguest.elf > helloguest.asm
+	$(OBJCOPY) -O binary helloguest.elf helloguest
+
+fs.img: mkfs README $(UPROGS) helloguest
+	./mkfs fs.img README $(UPROGS) helloguest
 
 -include *.d
 
@@ -195,7 +214,8 @@ clean:
 	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
 	*.o *.d *.asm *.sym vectors.S bootblock entryother \
 	initcode initcode.out kernel xv6.img fs.img kernelmemfs \
-	xv6memfs.img mkfs .gdbinit \
+	xv6memfs.img mkfs .gdbinit helloguest helloguest.elf \
+	.bochsrc bochsout.txt serial.out \
 	$(UPROGS) \
 	.index.html
 
@@ -218,6 +238,14 @@ bochs : fs.img xv6.img
 	if [ ! -e .bochsrc ]; then ln -s dot-bochsrc .bochsrc; fi
 	bochs -q
 
+# Headless bochs (no GUI window): useful over SSH or when running under nix
+# without a display. Output-only - see dot-bochsrc-nox for why there's no
+# viable way to type into this on macOS with this Bochs build. Kernel output
+# still shows up via the com1->stdout mirror configured in dot-bochsrc-nox.
+# For interactive use, use `make bochs` instead.
+bochs-nox : fs.img xv6.img
+	bochs -q -f dot-bochsrc-nox
+
 # try to generate a unique GDB port
 GDBPORT = $(shell expr `id -u` % 5000 + 25000)
 # QEMU's gdb stub command line changed in 0.11
@@ -227,7 +255,11 @@ QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
 ifndef CPUS
 CPUS := 2
 endif
-QEMUOPTS = -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,index=0,media=disk,format=raw -smp $(CPUS) -m 512 $(QEMUEXTRA)
+# The hypervisor needs VT-x, which QEMU provides only through KVM
+# (with nested virtualization enabled on the host). Run without it
+# with "make qemu QEMUKVM=".
+QEMUKVM ?= -enable-kvm -cpu host
+QEMUOPTS = -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,index=0,media=disk,format=raw -smp $(CPUS) -m 512 $(QEMUKVM) $(QEMUEXTRA)
 
 qemu: fs.img xv6.img
 	$(QEMU) -serial mon:stdio $(QEMUOPTS)

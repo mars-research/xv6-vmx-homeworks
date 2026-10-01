@@ -45,10 +45,15 @@
     devShell = x86Pkgs.mkShell {
       nativeBuildInputs = with pkgs; [
         qemu
+        bochs
         gdb'
       ];
 
       TOOLPREFIX = lib.optionalString useCross "x86_64-elf-";
+
+      # Bochs looks up its BIOS/VGABIOS images (and keymaps) relative to
+      # $BXSHARE at runtime; point it at the files nixpkgs installed.
+      BXSHARE = "${pkgs.bochs}/share/bochs";
     };
   });
 }

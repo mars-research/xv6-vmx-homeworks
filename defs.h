@@ -9,6 +9,7 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct vmexit;
 
 // acpi.c
 int             acpiinit(void);
@@ -187,6 +188,14 @@ void            switchuvm(struct proc*);
 void            switchkvm(void);
 int             copyout(pml4e_t*, uint, void*, uint);
 void            clearpteu(pml4e_t*, char*);
+
+// vmx.c
+void            vmxinit(void);
+int             vmcreate(char*, int, int);
+int             vmsetreg(int, int, uint64);
+int             vmrun(int, struct vmexit*);
+int             vmgetreg(int, int, uint64*);
+void            vmxfreeproc(struct proc*);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

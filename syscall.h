@@ -20,3 +20,7 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
+#define SYS_vmcreate 22
+#define SYS_vmsetreg 23
+#define SYS_vmrun    24
+#define SYS_vmgetreg 25

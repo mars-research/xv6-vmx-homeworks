@@ -61,11 +61,25 @@
 #display_library: win32, options="legacyF12" # use F12 to toggle mouse
 #display_library: wx
 #display_library: x
-# nixpkgs' "bochs" only compiles in sdl2/term on Darwin (no wx/X11) - note
-# "sdl2", not the legacy "sdl" (SDL 1.x) - so pick sdl2 explicitly for a
-# graphical window on macOS. See dot-bochsrc-nox for a headless (nogui)
-# config.
-display_library: sdl2
+# Headless variant of dot-bochsrc (used by `make bochs-nox`): no GUI window,
+# so this works over SSH / in a terminal-only session. Kernel output still
+# comes through via the com1 mirror to stdout below.
+#
+# This is deliberately "nogui", not "term". nogui has no keyboard input path
+# at all (confirmed in gui/nogui.cc: no scancode generation, no stdin reads),
+# so this target is output-only - fine for watching boot / a smoke test, but
+# you can't type into it. "term" looks tempting (it's ncurses-based and
+# normally does forward host keystrokes) but is broken on this exact build:
+# nixpkgs' bochs has no wx on Darwin, which forces Bochs's BX_DEBUGGER_TERM
+# path even without -dbg. That path makes gui/term.cc open a *fresh* pty via
+# /dev/ptmx and print "Bochs connected to screen /dev/ttysNN" - and reading
+# back from that pty floods the emulated i8042 keyboard controller with
+# garbage scancodes from tick ~10000 (i.e. immediately at boot, unrelated to
+# any real typing) - "internal keyboard buffer full, ignoring scancode ..."
+# spam in bochsout.txt is the symptom. It's a self-contained Bochs bug on
+# this platform, not an xv6 or config issue, and there's no bochsrc-level
+# fix for it. Use `make bochs` (sdl2 window) for interactive use.
+display_library: nogui
 
 #=======================================================================
 # ROMIMAGE:
@@ -460,8 +474,7 @@ debugger_log: -
 #com1: enabled=1, mode=term, dev=/dev/ttyp9
 # xv6's console driver writes every character to both the CGA framebuffer
 # and the UART (uart.c), so mirroring com1 to stdout gives a text transcript
-# alongside the graphical window - handy since Bochs' window can't be
-# copy-pasted from as easily as a terminal.
+# even though nogui shows no VGA screen at all.
 com1: enabled=1, mode=file, dev=/dev/stdout
 
 

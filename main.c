@@ -55,6 +55,7 @@ mpmain(void)
 {
   cprintf("cpu%d: starting %d\n", cpuid(), cpuid());
   idtinit();       // load idt register
+  vmxinit();       // enter VMX operation
   xchg(&(mycpu()->started), 1); // tell startothers() we're up
   scheduler();     // start running processes
 }
