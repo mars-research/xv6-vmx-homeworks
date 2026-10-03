@@ -29,7 +29,11 @@ uartinit(void)
   outb(COM1+0, 115200/9600);
   outb(COM1+1, 0);
   outb(COM1+3, 0x03);    // Lock divisor, 8 data bits.
-  outb(COM1+4, 0);
+  // MCR: set OUT2. On a PC, the UART's interrupt line reaches the
+  // interrupt controller only when OUT2 is set. QEMU ignores this bit,
+  // but Bochs and real hardware do not: without it, typed input never
+  // raises IRQ 4 and the console cannot read the serial line.
+  outb(COM1+4, 0x08);
   outb(COM1+1, 0x01);    // Enable receive interrupts.
 
   // If status is 0xFF, no serial port.

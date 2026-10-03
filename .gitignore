@@ -22,3 +22,4 @@ bochsout.txt
 serial.out
 helloguest
 helloguest.elf
+*.img.lock

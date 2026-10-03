@@ -62,23 +62,17 @@
 #display_library: wx
 #display_library: x
 # Headless variant of dot-bochsrc (used by `make bochs-nox`): no GUI window,
-# so this works over SSH / in a terminal-only session. Kernel output still
-# comes through via the com1 mirror to stdout below.
+# so this works over SSH / in a terminal-only session. The console is the
+# serial port, connected to the terminal (see com1 below), so you can both
+# see output and type.
 #
-# This is deliberately "nogui", not "term". nogui has no keyboard input path
-# at all (confirmed in gui/nogui.cc: no scancode generation, no stdin reads),
-# so this target is output-only - fine for watching boot / a smoke test, but
-# you can't type into it. "term" looks tempting (it's ncurses-based and
-# normally does forward host keystrokes) but is broken on this exact build:
-# nixpkgs' bochs has no wx on Darwin, which forces Bochs's BX_DEBUGGER_TERM
-# path even without -dbg. That path makes gui/term.cc open a *fresh* pty via
-# /dev/ptmx and print "Bochs connected to screen /dev/ttysNN" - and reading
-# back from that pty floods the emulated i8042 keyboard controller with
-# garbage scancodes from tick ~10000 (i.e. immediately at boot, unrelated to
-# any real typing) - "internal keyboard buffer full, ignoring scancode ..."
-# spam in bochsout.txt is the symptom. It's a self-contained Bochs bug on
-# this platform, not an xv6 or config issue, and there's no bochsrc-level
-# fix for it. Use `make bochs` (sdl2 window) for interactive use.
+# This is deliberately "nogui", not "term". The "term" display library
+# would read keys from the terminal and feed them to the emulated PS/2
+# keyboard, but on macOS the nixpkgs Bochs is built with the internal
+# debugger and without wx, which makes term open a separate pty that
+# floods the keyboard controller with garbage scancodes ("internal
+# keyboard buffer full" in bochsout.txt). Using COM1 for input avoids the
+# display library entirely.
 display_library: nogui
 
 #=======================================================================
@@ -472,10 +466,14 @@ debugger_log: -
 #   com3: enabled=1, mode=socket, dev=localhost:8888
 #=======================================================================
 #com1: enabled=1, mode=term, dev=/dev/ttyp9
-# xv6's console driver writes every character to both the CGA framebuffer
-# and the UART (uart.c), so mirroring com1 to stdout gives a text transcript
-# even though nogui shows no VGA screen at all.
-com1: enabled=1, mode=file, dev=/dev/stdout
+# COM1 is the console for `make bochs-nox`: "term" mode attaches it to
+# Bochs's controlling terminal for both output and input. xv6's console
+# driver writes every character to the CGA framebuffer and the UART, and
+# reads typed characters from the UART (this needs MCR.OUT2, set in
+# uart.c). Run it through bochs-console.py, which the Makefile does: in
+# this mode Bochs makes the terminal raw with Ctrl-C disabled and does
+# not restore it, and the script provides Ctrl-A x to quit.
+com1: enabled=1, mode=term, dev=/dev/tty
 
 
 #=======================================================================

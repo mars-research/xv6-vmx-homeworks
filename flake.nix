@@ -47,6 +47,7 @@
         qemu
         bochs
         gdb'
+        python3   # bochs-console.py, used by `make bochs-nox`
       ];
 
       TOOLPREFIX = lib.optionalString useCross "x86_64-elf-";

@@ -239,12 +239,13 @@ bochs : fs.img xv6.img
 	bochs -q
 
 # Headless bochs (no GUI window): useful over SSH or when running under nix
-# without a display. Output-only - see dot-bochsrc-nox for why there's no
-# viable way to type into this on macOS with this Bochs build. Kernel output
-# still shows up via the com1->stdout mirror configured in dot-bochsrc-nox.
-# For interactive use, use `make bochs` instead.
+# without a display. The xv6 console is the serial port, connected to this
+# terminal by bochs-console.py; type Ctrl-A x to quit. A killed Bochs leaves
+# its disk-image lock files behind, which make the next run fail.
 bochs-nox : fs.img xv6.img
-	bochs -q -f dot-bochsrc-nox
+	rm -f xv6.img.lock fs.img.lock
+	-python3 bochs-console.py bochs -q -f dot-bochsrc-nox
+	rm -f xv6.img.lock fs.img.lock
 
 # try to generate a unique GDB port
 GDBPORT = $(shell expr `id -u` % 5000 + 25000)
