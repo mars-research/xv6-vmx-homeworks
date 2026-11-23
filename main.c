@@ -23,7 +23,9 @@ main(void)
   kvmalloc();      // kernel page table
   mpinit();        // detect other processors
   lapicinit();     // interrupt controller
-  seginit();       // segment descriptors
+#ifndef PARAVIRT
+  seginit();       // segment descriptors (HW3: the guest uses the host's)
+#endif
   picinit();       // disable pic
   ioapicinit();    // another interrupt controller
   consoleinit();   // console hardware
@@ -55,7 +57,9 @@ mpmain(void)
 {
   cprintf("cpu%d: starting %d\n", cpuid(), cpuid());
   idtinit();       // load idt register
-  vmxinit();       // enter VMX operation
+#ifndef PARAVIRT
+  vmxinit();       // enter VMX operation (HW3: not in the guest)
+#endif
   xchg(&(mycpu()->started), 1); // tell startothers() we're up
   scheduler();     // start running processes
 }

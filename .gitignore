@@ -22,4 +22,10 @@ bochsout.txt
 serial.out
 helloguest
 helloguest.elf
+xv6kernel
+mkfsguest
+guest/
+xv6pvkernel
+pvkernel.ld
+pvguest/
 *.img.lock

@@ -238,16 +238,19 @@ void
 balloc(int used)
 {
   uchar buf[BSIZE];
-  int i;
+  int i, b;
 
   printf("balloc: first %d blocks have been allocated\n", used);
-  assert(used < BSIZE*8);
-  bzero(buf, BSIZE);
-  for(i = 0; i < used; i++){
-    buf[i/8] = buf[i/8] | (0x1 << (i%8));
+  assert(used < FSSIZE);
+  // HW3: the host disk's files need more than the BPB (4096) blocks one
+  // bitmap block describes, so write as many as it takes.
+  for(b = 0; b * BPB < used; b++){
+    bzero(buf, BSIZE);
+    for(i = b * BPB; i < used && i < (b + 1) * BPB; i++)
+      buf[(i % BPB) / 8] |= 0x1 << (i % 8);
+    printf("balloc: write bitmap block at sector %d\n", sb.bmapstart + b);
+    wsect(sb.bmapstart + b, buf);
   }
-  printf("balloc: write bitmap block at sector %d\n", sb.bmapstart);
-  wsect(sb.bmapstart, buf);
 }
 
 #define min(a, b) ((a) < (b) ? (a) : (b))

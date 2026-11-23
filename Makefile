@@ -31,6 +31,8 @@ OBJS = \
 	vmx.o\
 	vmxasm.o\
 	sysvmx.o\
+	pv.o\
+	pvasm.o\
 
 # Cross-compiling (e.g., on Mac OS X)
 # TOOLPREFIX = x86_64-elf-
@@ -85,7 +87,9 @@ CFLAGS = -fno-pic -static -fno-builtin -fno-strict-aliasing -Og -Wno-infinite-re
 # CFLAGS += -mno-mmx -mno-sse -mno-sse2 -mno-sse3 -mno-ssse3 -mno-sse4 -mno-sse4a -mno-sse4.1 -mno-sse4.2 -mfpmath=387
 CFLAGS += -mno-default
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
-ASFLAGS = -gdwarf-2 -Wa,-divide
+# -MD, as in CFLAGS: without it, a .S file is not rebuilt when a header
+# it includes changes (pvapi.h's hypercall numbers, for one).
+ASFLAGS = -gdwarf-2 -Wa,-divide -MD
 # LDFLAGS := --no-warn-rwx-segments
 LDFLAGS := -z max-page-size=0x1000
 
@@ -197,6 +201,7 @@ UPROGS=\
 	_timertest\
 	_runvm\
 	_runxv6\
+	_runpv\
 
 # Hello-world VT-x guest: a flat binary loaded by runvm, not an xv6
 # user program.
@@ -231,7 +236,7 @@ GUESTDEFS = -DPHYSTOP=0x2000000 -DFSSIZE=$(GUESTFSSIZE)
 GUESTOBJS = $(addprefix guest/,$(OBJS))
 # The guest's programs: the host's, minus the two VT-x monitors. The
 # guest has no VMX (vmxcpuid() hides it), so they could only fail.
-GUESTUPROGS = $(filter-out _runvm _runxv6,$(UPROGS))
+GUESTUPROGS = $(filter-out _runvm _runxv6 _runpv,$(UPROGS))
 
 # The guest kernel's C files. "$(OBJS): CFLAGS += ..." above applies
 # only to the targets in OBJS (bio.o, ...), not to guest/bio.o, so the
@@ -256,6 +261,34 @@ guest/%.o: %.S
 xv6kernel: $(GUESTOBJS) guest/entry.o entryother initcode kernel.ld
 	$(LD) $(LDFLAGS) -T kernel.ld -o xv6kernel guest/entry.o $(GUESTOBJS) -b binary initcode entryother
 
+# The paravirtualized guest (HW3): the same kernel once more, built with
+# -DPARAVIRT for the hypervisor in pv.c, which runs it without VT-x. It
+# has the HW2 guest's memory size and disk (xv6fs.img). Its objects go
+# in pvguest/, for the reason given for guest/ above. It has none of a
+# PC's hardware, so the files that drive it are left out, and
+# pvmachine.c and virtio_disk.c take their place.
+PVDEFS = $(GUESTDEFS) -DPARAVIRT
+PVHWOBJS = mp.o acpi.o picirq.o ioapic.o uart.o ide.o
+PVOBJS = $(addprefix pvguest/,$(filter-out $(PVHWOBJS),$(OBJS)) \
+	pvmachine.o virtio_disk.o)
+
+pvguest/%.o: %.c
+	@mkdir -p pvguest
+	$(CC) $(CFLAGS) -m64 -mcmodel=large -DX86_64 $(PVDEFS) -c -o $@ $<
+
+pvguest/%.o: %.S
+	@mkdir -p pvguest
+	$(CC) $(ASFLAGS) $(PVDEFS) -c -o $@ $<
+
+# Its KERNBASE is 4 TB (memlayout.h), so it is linked there, with
+# kernel.ld's address changed to match.
+pvkernel.ld: kernel.ld
+	sed 's/0x80000100000/0x40000100000/' kernel.ld > pvkernel.ld
+
+xv6pvkernel: $(PVOBJS) pvguest/entry.o entryother initcode pvkernel.ld
+	$(LD) $(LDFLAGS) -T pvkernel.ld -o xv6pvkernel pvguest/entry.o $(PVOBJS) -b binary initcode entryother
+	$(OBJDUMP) -S xv6pvkernel > xv6pvkernel.asm
+
 # mkfs for the guest's disk. mkfs takes the image size from FSSIZE at
 # compile time, so the guest's needs its own binary, built with
 # GUESTFSSIZE. It depends on the Makefile because GUESTFSSIZE is set
@@ -271,12 +304,13 @@ xv6fs.img: mkfsguest README $(GUESTUPROGS)
 # so that, inside xv6, "runxv6 xv6kernel xv6fs.img" can read them.
 # Both are larger than stock xv6's 70 KB file limit, hence the
 # doubly-indirect block in fs.h.
-fs.img: mkfs README $(UPROGS) helloguest xv6kernel xv6fs.img
-	./mkfs fs.img README $(UPROGS) helloguest xv6kernel xv6fs.img
+fs.img: mkfs README $(UPROGS) helloguest xv6kernel xv6fs.img xv6pvkernel
+	./mkfs fs.img README $(UPROGS) helloguest xv6kernel xv6fs.img xv6pvkernel
 
 # Header dependencies of the guest objects (from -MD above), so that,
 # for example, changing param.h rebuilds them.
 -include guest/*.d
+-include pvguest/*.d
 
 -include *.d
 
@@ -288,10 +322,11 @@ clean:
 	initcode initcode.out kernel xv6.img fs.img kernelmemfs \
 	xv6memfs.img mkfs .gdbinit helloguest helloguest.elf \
 	xv6kernel xv6fs.img mkfsguest \
+	xv6pvkernel pvkernel.ld \
 	.bochsrc bochsout.txt serial.out \
 	$(UPROGS) \
 	.index.html
-	rm -rf guest
+	rm -rf guest pvguest
 
 # make a printout
 FILES = $(shell grep -v '^\#' runoff.list)

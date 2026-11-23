@@ -69,6 +69,25 @@ loadgs(ushort v)
     asm volatile("movw %0, %%gs" : : "r" (v));
 }
 
+#ifdef PARAVIRT
+// HW3: the guest kernel runs in ring 3, where it cannot use privileged
+// instructions; it uses hypercalls instead (pvapi.h).
+#include "pvapi.h"
+
+// Shared with the host (pvmachine.c).
+extern volatile struct pvcpu pvcpu;
+
+static inline uint64
+hypercall(uint64 nr, uint64 a0, uint64 a1, uint64 a2)
+{
+  /* HW3 Part 3: write this function; see HW3.md. */
+  return -1;
+}
+
+// HW3 Part 3: also write the paravirtual cli(), sti(), lidt(), rcr2(),
+// lcr3() and readrflags(), each next to the native one; see HW3.md.
+#endif
+
 static inline void
 cli(void)
 {

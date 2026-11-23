@@ -9,7 +9,9 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct trapframe;
 struct vmexit;
+struct pvexit;
 
 // acpi.c
 int             acpiinit(void);
@@ -26,6 +28,7 @@ void            cprintf(char*, ...);
 void            consoleintr(int(*)(void));
 void            consraw(int);
 int             consready(void);
+void            consoleputc(int);
 void            panic(char*) __attribute__((noreturn));
 
 // exec.c
@@ -191,6 +194,8 @@ void            switchuvm(struct proc*);
 void            switchkvm(void);
 int             copyout(pml4e_t*, uint, void*, uint);
 void            clearpteu(pml4e_t*, char*);
+uint64*         walkpml4(pml4e_t*, const void*, int, int*);
+void            freepgdir(uint64*, int);
 
 // vmx.c
 void            vmxinit(void);
@@ -201,6 +206,16 @@ int             vmgetreg(int, int, uint64*);
 int             vmmem(int, uint64, char*, int, int);
 int             vminject(int, int);
 void            vmxfreeproc(struct proc*);
+
+// pv.c
+int             pvcreate(void);
+int             pvrun(struct pvexit*);
+int             pvmem(uint64, char*, int, int);
+int             pvsetreg(int, uint64);
+int             pvinject(int);
+void            pvfreeproc(struct proc*);
+void            pvexit(struct trapframe*) __attribute__((noreturn));
+int             pvconsole(int);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

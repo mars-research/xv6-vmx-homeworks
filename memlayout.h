@@ -13,7 +13,14 @@
 #define DEVSPACE 0xFE000000         // Other devices are at high addresses
 
 // Key addresses for address space layout (see kmap in vm.c for layout)
+#ifdef PARAVIRT
+// HW3: a paravirtualized guest runs in the host's user half, below the
+// host's KERNBASE (8 TB), so its kernel moves down to 4 TB. The Makefile
+// links it there too.
+#define KERNBASE 0x40000000000      // First kernel virtual address
+#else
 #define KERNBASE 0x80000000000      // First kernel virtual address
+#endif
 #define DEVBASE  0xFFFFFFFFFE000000 // First device virtual address
 #define KERNLINK (KERNBASE+EXTMEM)  // Address where kernel is linked
 

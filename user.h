@@ -1,6 +1,7 @@
 struct stat;
 struct rtcdate;
 struct vmexit;
+struct pvexit;
 
 // system calls
 int fork(void);
@@ -32,6 +33,11 @@ int vmmem(int, uint64, void*, int, int);
 int vminject(int, int);
 int fdready(int);
 int consraw(int);
+int pvcreate(void);
+int pvrun(struct pvexit*);
+int pvmem(uint64, void*, int, int);
+int pvsetreg(int, uint64);
+int pvinject(int);
 
 // ulib.c
 int stat(const char*, struct stat*);

@@ -28,3 +28,8 @@
 #define SYS_vminject 27
 #define SYS_fdready  28
 #define SYS_consraw  29
+#define SYS_pvcreate 30
+#define SYS_pvrun    31
+#define SYS_pvmem    32
+#define SYS_pvsetreg 33
+#define SYS_pvinject 34

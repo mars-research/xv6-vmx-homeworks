@@ -1,4 +1,5 @@
 #include "mmu.h"
+#include "pvapi.h"
 
   # vectors.S sends all traps here.
 .globl alltraps

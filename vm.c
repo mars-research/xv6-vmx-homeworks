@@ -78,7 +78,8 @@ walkpglevel(uint64 *pgdir, const void *va, int alloc, int level,
 // create any required page table pages.
 // On failure (return value equals 0), missing is set to the level 
 // in which the table was not present.
-static pte_t *
+// HW3: not static; pv.c uses it for its shadow page tables.
+pte_t *
 walkpml4(pml4e_t *pml4, const void *va, int alloc, int *missing)
 {
   return walkpglevel(pml4, va, alloc, 4, missing);
@@ -159,7 +160,10 @@ static struct kmap {
  { (void*)KERNBASE, 0,             EXTMEM,    PTE_W}, // I/O space
  { (void*)KERNLINK, V2P(KERNLINK), V2P(data), 0},     // kern text+rodata
  { (void*)data,     V2P(data),     PHYSTOP,   PTE_W}, // kern data+memory
+#ifndef PARAVIRT
+ // HW3: the guest has no such devices, and the host owns this address.
  { (void*)DEVBASE,  DEVSPACE,      0,         PTE_W}, // more devices
+#endif
 };
 
 // Set up kernel part of a page table.

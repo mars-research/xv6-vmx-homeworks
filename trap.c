@@ -7,6 +7,7 @@
 #include "x86.h"
 #include "traps.h"
 #include "spinlock.h"
+#include "pvapi.h"
 
 // Interrupt descriptor table (shared by all CPUs).
 struct gatedesc idt[256];
@@ -22,6 +23,10 @@ tvinit(void)
   for(i = 0; i < 256; i++)
     SETGATE(idt[i], 0, SEG_KCODE<<3, vectors[i], 0);
   SETGATE(idt[T_SYSCALL], 1, SEG_KCODE<<3, vectors[T_SYSCALL], DPL_USER);
+#ifndef PARAVIRT
+  // HW3: hypercalls from a paravirtualized guest's kernel, in ring 3.
+  SETGATE(idt[T_HCALL], 0, SEG_KCODE<<3, vectors[T_HCALL], DPL_USER);
+#endif
 
   initlock(&tickslock, "time");
 }
@@ -32,10 +37,24 @@ idtinit(void)
   lidt(idt, sizeof(idt));
 }
 
+// HW3: did tf come from a paravirtualized guest (pv.c)? While pvrun()
+// runs the guest, the process's own user code does not run, so any trap
+// from ring 3 is the guest's.
+static int
+fromguest(struct trapframe *tf)
+{
+  return (tf->cs&3) == DPL_USER && myproc()->inguest;
+}
+
 //PAGEBREAK: 41
 void
 trap(struct trapframe *tf)
 {
+  // HW3: a trap from the guest is its VM exit; pvexit() does not
+  // return. Host interrupts are handled first, below.
+  if(fromguest(tf) && (tf->trapno < T_IRQ0 || tf->trapno >= T_IRQ0 + 32))
+    pvexit(tf);
+
   if(tf->trapno == T_SYSCALL){
     if(myproc()->killed)
       exit();
@@ -93,6 +112,10 @@ trap(struct trapframe *tf)
             tf->err, cpuid(), tf->rip, rcr2());
     myproc()->killed = 1;
   }
+
+  // HW3: a host interrupt that came while the guest ran.
+  if(fromguest(tf))
+    pvexit(tf);
 
   // Force process exit if it has been killed and is in user space.
   // (If it is still executing in the kernel, let it keep running

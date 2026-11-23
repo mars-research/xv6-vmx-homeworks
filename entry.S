@@ -22,6 +22,7 @@
 #include "memlayout.h"
 #include "mmu.h"
 #include "param.h"
+#include "pvapi.h"
 
 .code32
 # Multiboot header.  Data to direct multiboot loader.
@@ -41,6 +42,21 @@ multiboot_header:
 .globl _start
 _start = V2P_WO(entry)
 
+#ifdef PARAVIRT
+# HW3: a paravirtualized guest starts here already in 64-bit mode, in
+# ring 3, at its physical addresses (pv.c). It cannot change modes or
+# load CR3 itself, so it asks the host for entrypml4, and goes on as the
+# code below does once paging is on.
+.code64
+.globl entry
+entry:
+  movq    $HC_LCR3, %rax
+  movq    $(V2P_WO(entrypml4)), %rdi
+  int     $T_HCALL
+  movabs  $(stack + KSTACKSIZE), %rsp
+  movabs  $main, %rax
+  jmp     *%rax
+#else
 # Entering xv6 on boot processor, with paging off, in protected mode.
 .globl entry
 entry:
@@ -82,6 +98,7 @@ start64:
   movabs  $(stack + KSTACKSIZE), %rsp
   movabs  $main, %rax
   jmp     *%rax
+#endif
 
 # Bootstrap GDT64
 .data

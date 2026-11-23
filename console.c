@@ -129,6 +129,7 @@ panic(char *s)
 
 //PAGEBREAK: 50
 #define BACKSPACE 0x100
+#ifndef PARAVIRT
 #define CRTPORT 0x3d4
 static ushort *crt = (ushort*)P2V(0xb8000);  // CGA memory
 
@@ -165,6 +166,7 @@ cgaputc(int c)
   outb(CRTPORT+1, pos);
   crt[pos] = ' ' | 0x0700;
 }
+#endif
 
 void
 consputc(int c)
@@ -179,7 +181,9 @@ consputc(int c)
     uartputc('\b'); uartputc(' '); uartputc('\b');
   } else
     uartputc(c);
-  cgaputc(c);
+#ifndef PARAVIRT
+  cgaputc(c);  // HW3: the guest has no screen
+#endif
 }
 
 #define INPUT_BUF 128
@@ -227,6 +231,16 @@ consready(void)
   return r;
 }
 
+// HW3: a character printed by a paravirtualized guest (HC_CONSPUTC
+// in pv.c). consputc() itself is not locked.
+void
+consoleputc(int c)
+{
+  acquire(&cons.lock);
+  consputc(c);
+  release(&cons.lock);
+}
+
 #define C(x)  ((x)-'@')  // Control-x
 
 void
@@ -236,6 +250,9 @@ consoleintr(int (*getc)(void))
 
   acquire(&cons.lock);
   while((c = getc()) >= 0){
+    // HW3: while a paravirtualized guest runs, typed characters are its.
+    if(pvconsole(c))
+      continue;
     if(rawmode){
       // HW2 raw mode: no echo, no editing; every character is
       // available to read() at once.

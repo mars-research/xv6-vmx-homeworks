@@ -44,6 +44,7 @@
 #include "mmu.h"
 #include "proc.h"
 #include "vmxapi.h"
+#include "pvapi.h"
 
 // int vmcreate(void *image, int len, int memsz)
 //
@@ -194,4 +195,65 @@ sys_vminject(void)
   if(argint(0, &vm) < 0 || argint(1, &vector) < 0)
     return -1;
   return vminject(vm, vector);
+}
+
+// HW3: the system calls of runpv, for a paravirtualized guest (pv.c).
+// pvapi.h describes them.
+
+// int pvcreate(void)
+uint64
+sys_pvcreate(void)
+{
+  return pvcreate();
+}
+
+// int pvmem(uint64 gpa, void *buf, int len, int flags)
+//
+// As in sys_vmmem(), len is fetched before buf, which argptr() checks
+// for len bytes.
+uint64
+sys_pvmem(void)
+{
+  int len, flags;
+  int64 gpa;
+  char *buf;
+
+  if(argint64(0, &gpa) < 0 || argint(2, &len) < 0 ||
+     argptr(1, &buf, len) < 0 || argint(3, &flags) < 0)
+    return -1;
+  return pvmem(gpa, buf, len, flags);
+}
+
+// int pvsetreg(int reg, uint64 val)
+uint64
+sys_pvsetreg(void)
+{
+  int reg;
+  int64 val;
+
+  if(argint(0, &reg) < 0 || argint64(1, &val) < 0)
+    return -1;
+  return pvsetreg(reg, val);
+}
+
+// int pvinject(int irq)
+uint64
+sys_pvinject(void)
+{
+  int irq;
+
+  if(argint(0, &irq) < 0)
+    return -1;
+  return pvinject(irq);
+}
+
+// int pvrun(struct pvexit *e)
+uint64
+sys_pvrun(void)
+{
+  struct pvexit *e;
+
+  if(argptr(0, (char**)&e, sizeof(*e)) < 0)
+    return -1;
+  return pvrun(e);
 }
